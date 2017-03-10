@@ -2,6 +2,7 @@ define cfssl::certificate_request (
   Enum[ca, server, client] $profile,
   Array[String]            $hosts,
   String                   $remote_address,
+  String                   $config         = "",
   Integer[0]               $remote_port    = $cfssl::service_port,
   String                   $common_name    = $title,
   Enum[ecdsa, rsa]         $key_algo       = $cfssl::key_algo,
@@ -18,8 +19,14 @@ define cfssl::certificate_request (
     content => template("${module_name}/ca-csr.json.erb"),
   }
 
+  if $config == "" {
+    $command = "cfssl gencert -remote ${remote_address}:${remote_port} -profile ${profile} -hostname ${hosts.join(',')} ${cfssl::conf_dir}/${common_name}-csr.json | cfssljson -bare ${common_name}",
+  else {
+    $command = "cfssl gencert -remote ${remote_address}:${remote_port} -profile ${profile} -config ${config} -hostname ${hosts.join(',')} ${cfssl::conf_dir}/${common_name}-csr.json | cfssljson -bare ${common_name}",
+  }
+
   exec { "req-${common_name}":
-  command     => "cfssl gencert -remote ${remote_address}:${remote_port} -profile ${profile} -hostname ${hosts.join(',')} ${cfssl::conf_dir}/${common_name}-csr.json | cfssljson -bare ${common_name}",
+  command     => $command
   cwd         => $cfssl::conf_dir,
   creates     => [ "${cfssl::conf_dir}/${common_name}.pem", "${cfssl::conf_dir}/${common_name}.csr", "${cfssl::conf_dir}/${common_name}-key.pem" ],
   provider    => shell,
